@@ -16,22 +16,29 @@ package com.commonsware.android.download;
 
 import android.app.Activity;
 import android.app.DownloadManager;
+import android.app.DownloadManager.Query;
+import android.app.DownloadManager.Request;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
-import android.os.Environment;
 import android.util.Log;
 import android.view.View;
 import android.widget.Toast;
 
 public class DownloadDemo extends Activity {
+	
+  private static final String TAG = "DownloadDemo";
   private DownloadManager mgr=null;
   private long lastDownload=-1L;
   
+  /**
+   * On create we just setup our download manager and register a couple receivers.
+   */
   @Override
   public void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
@@ -44,6 +51,9 @@ public class DownloadDemo extends Activity {
                      new IntentFilter(DownloadManager.ACTION_NOTIFICATION_CLICKED));
   }
   
+  /**
+   * On destroy we just maintain our receivers
+   */
   @Override
   public void onDestroy() {
     super.onDestroy();
@@ -52,27 +62,35 @@ public class DownloadDemo extends Activity {
     unregisterReceiver(onNotificationClick);
   }
   
+  /**
+   * Called onClick.
+   * This starts a download fora hardcoded APK file.
+   * @param v
+   */
   public void startDownload(View v) {
-    Uri uri=Uri.parse("http://commonsware.com/misc/test.mp4");
+    //This is the download request.
+    Request request = new Request(Uri.parse("http://file.appsapk.com/download/Flashlight%20Call.apk"));
     
-    Environment
-      .getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-      .mkdirs();
+    //setVisibleInDownloadsUi will flag the visibility of the downloaded file in the Downloads app.
+    //If the flag is false, the file will not be visible.
+    request.setVisibleInDownloadsUi(false);
     
-    lastDownload=
-      mgr.enqueue(new DownloadManager.Request(uri)
-                  .setAllowedNetworkTypes(DownloadManager.Request.NETWORK_WIFI |
-                                          DownloadManager.Request.NETWORK_MOBILE)
-                  .setAllowedOverRoaming(false)
-                  .setTitle("Demo")
-                  .setDescription("Something useful. No, really.")
-                  .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS,
-                                                     "test.mp4"));
+    //setNotificationVisibility will flag the visibility of the notification while downloading
+    //If the flag is false, you wont see any notification
+    request.setNotificationVisibility(Request.VISIBILITY_HIDDEN);
+    
+    //This will queue the file up for download. You will get back a long which will be the download id once
+    //it is completed.
+    lastDownload = mgr.enqueue(request);
     
     v.setEnabled(false);
     findViewById(R.id.query).setEnabled(true);
   }
   
+  /**
+   * This will query the current download and log the specifics to the logcat.
+   * @param v
+   */
   public void queryStatus(View v) {
     Cursor c=mgr.query(new DownloadManager.Query().setFilterById(lastDownload));
     
@@ -99,6 +117,10 @@ public class DownloadDemo extends Activity {
     }
   }
   
+  /**
+   * This will show the download manager logs. Should show nothing.
+   * @param v
+   */
   public void viewLog(View v) {
     startActivity(new Intent(DownloadManager.ACTION_VIEW_DOWNLOADS));
   }
@@ -135,12 +157,45 @@ public class DownloadDemo extends Activity {
     return(msg);
   }
   
+  /**
+   * Broadcast receiver for completion. 
+   */
   BroadcastReceiver onComplete=new BroadcastReceiver() {
     public void onReceive(Context ctxt, Intent intent) {
-      findViewById(R.id.start).setEnabled(true);
+        findViewById(R.id.start).setEnabled(true);
+    	String action = intent.getAction();
+        if (DownloadManager.ACTION_DOWNLOAD_COMPLETE.equals(action)) {
+            //Create a query for the download ID we queued up earlier.
+            //Should probably add a handle incase we lost the enqueue id.
+            Query query = new Query();
+            query.setFilterById(lastDownload);
+            Cursor c = mgr.query(query);
+            if (c.moveToFirst()) {
+                int columnIndex = c.getColumnIndex(DownloadManager.COLUMN_STATUS);
+                
+                //There are other STATUS that we can look at such as STATUS_FAILED, PAUSED, PENDING, etc.
+                if (DownloadManager.STATUS_SUCCESSFUL == c.getInt(columnIndex)) {
+                    Log.d(TAG, "Download was successful!");
+                    String uriString = c.getString(c.getColumnIndex(DownloadManager.COLUMN_LOCAL_URI));
+                    
+                    //If we got a successful download, then we should just install the apk because we hardcoded an APK file.
+                    PackageManager pm = getPackageManager();
+                    Uri uri = Uri.parse(uriString);
+                    //There are other parameters we can use here such as installation observers.
+                    //Check the documentation for more info.
+                    pm.installPackage(uri, null, 0, null);
+                    Toast.makeText(DownloadDemo.this, "Installing an APK file!", Toast.LENGTH_LONG).show();
+                
+                }
+            }
+        }
     }
   };
   
+  /**
+   * Receiver for notification onClick.
+   * Does nothing since our notification is invisible but you can see how it works.
+   */
   BroadcastReceiver onNotificationClick=new BroadcastReceiver() {
     public void onReceive(Context ctxt, Intent intent) {
       Toast.makeText(ctxt, "Ummmm...hi!", Toast.LENGTH_LONG).show();

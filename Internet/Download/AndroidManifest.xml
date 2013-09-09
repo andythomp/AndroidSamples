@@ -5,9 +5,21 @@
           xmlns:android="http://schemas.android.com/apk/res/android">
           
   <!-- <uses-permission android:name="android.permission.ACCESS_ALL_DOWNLOADS" /> -->
+  <uses-sdk
+        android:minSdkVersion="9"
+        android:targetSdkVersion="18" />
   <uses-permission android:name="android.permission.INTERNET" />
   <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.INSTALL_PACKAGES"/>
+    <uses-permission android:name="android.permission.DOWNLOAD_WITHOUT_NOTIFICATION" />
+  
+  <supports-screens android:anyDensity="true"
+                    android:largeScreens="true"
+                    android:normalScreens="true"
+                    android:smallScreens="true" />
+  
   <application android:icon="@drawable/cw"
+      			android:allowBackup="false"
                android:label="@string/app_name">
     <activity android:label="@string/app_name"
               android:name="DownloadDemo">
@@ -17,8 +29,4 @@
       </intent-filter>
     </activity>
   </application>
-  <supports-screens android:anyDensity="true"
-                    android:largeScreens="true"
-                    android:normalScreens="true"
-                    android:smallScreens="true" />
 </manifest>
